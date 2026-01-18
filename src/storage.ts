@@ -128,7 +128,7 @@ export class InMemoryUserRoleStorage implements UserRoleStorage {
     return `${tenantId}:${userId}:`;
   }
 
-  private getRoleKey(tenantId: TenantId, roleId: RoleId): string {
+  private getRoleKey(tenantId: TenantId, _roleId: RoleId): string {
     return `${tenantId}:`;
   }
 
