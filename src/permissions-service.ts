@@ -2,7 +2,7 @@
  * Core Permissions Service
  * 
  * Provides role-based access control (RBAC) and capability-based permission
- * checks with tenant isolation.
+ * checks with tenant isolation, powered by Casbin.
  */
 
 import { randomBytes } from 'crypto';
@@ -31,6 +31,7 @@ import {
   RoleIdSchema,
 } from './validation';
 import { RoleStorage, UserRoleStorage } from './storage';
+import { CasbinEnforcer } from './casbin-adapter';
 
 /**
  * Permissions service configuration
@@ -42,14 +43,18 @@ export interface PermissionsServiceConfig {
 
 /**
  * Permissions Service
+ * 
+ * Provides deterministic, auditable permission checks using Casbin.
  */
 export class PermissionsService {
   private roleStorage: RoleStorage;
   private userRoleStorage: UserRoleStorage;
+  private enforcer: CasbinEnforcer;
 
   constructor(config: PermissionsServiceConfig) {
     this.roleStorage = config.roleStorage;
     this.userRoleStorage = config.userRoleStorage;
+    this.enforcer = new CasbinEnforcer(config.roleStorage, config.userRoleStorage);
   }
 
   /**
@@ -58,7 +63,6 @@ export class PermissionsService {
   async createRole(input: CreateRoleInput): Promise<Role> {
     const validated = validate(CreateRoleInputSchema, input);
 
-    // Generate role ID
     const roleId = this.generateId();
 
     const role: Role = {
@@ -72,7 +76,14 @@ export class PermissionsService {
       updatedAt: new Date(),
     };
 
-    return this.roleStorage.createRole(role);
+    const created = await this.roleStorage.createRole(role);
+
+    // Sync Casbin policies
+    for (const capability of created.capabilities) {
+      await this.enforcer.addRolePolicy(created.tenantId, created.roleId, capability);
+    }
+
+    return created;
   }
 
   /**
@@ -92,10 +103,29 @@ export class PermissionsService {
     validate(RoleIdSchema, roleId);
     const validated = validate(UpdateRoleInputSchema, input);
 
-    return this.roleStorage.updateRole(tenantId, roleId, {
+    // Get existing role to compare capabilities
+    const existingRole = await this.roleStorage.getRole(tenantId, roleId);
+    if (!existingRole) {
+      throw new Error(`Role not found: ${roleId}`);
+    }
+
+    const updated = await this.roleStorage.updateRole(tenantId, roleId, {
       ...validated,
       updatedAt: new Date(),
     });
+
+    // Update Casbin policies if capabilities changed
+    if (validated.capabilities) {
+      // Remove old capabilities
+      await this.enforcer.clearRolePolicies(tenantId, roleId);
+      
+      // Add new capabilities
+      for (const capability of validated.capabilities) {
+        await this.enforcer.addRolePolicy(tenantId, roleId, capability);
+      }
+    }
+
+    return updated;
   }
 
   /**
@@ -104,6 +134,10 @@ export class PermissionsService {
   async deleteRole(tenantId: TenantId, roleId: RoleId): Promise<void> {
     validate(TenantIdSchema, tenantId);
     validate(RoleIdSchema, roleId);
+
+    // Clear Casbin policies
+    await this.enforcer.clearRolePolicies(tenantId, roleId);
+    
     await this.roleStorage.deleteRole(tenantId, roleId);
   }
 
@@ -135,7 +169,12 @@ export class PermissionsService {
       assignedBy: validated.assignedBy,
     };
 
-    return this.userRoleStorage.assignRole(assignment);
+    const result = await this.userRoleStorage.assignRole(assignment);
+
+    // Sync Casbin grouping policy
+    await this.enforcer.addUserRole(validated.tenantId, validated.userId, validated.roleId);
+
+    return result;
   }
 
   /**
@@ -145,7 +184,11 @@ export class PermissionsService {
     validate(TenantIdSchema, tenantId);
     validate(UserIdSchema, userId);
     validate(RoleIdSchema, roleId);
+
     await this.userRoleStorage.removeRole(tenantId, userId, roleId);
+
+    // Sync Casbin grouping policy
+    await this.enforcer.removeUserRole(tenantId, userId, roleId);
   }
 
   /**
@@ -186,31 +229,49 @@ export class PermissionsService {
 
   /**
    * Check if a user has a specific capability
+   * 
+   * Returns a deterministic, auditable result explaining:
+   * - Whether access is allowed or denied
+   * - Which roles/policies granted access (if allowed)
+   * - The reason for denial (if denied)
    */
   async checkPermission(input: PermissionCheckInput): Promise<PermissionCheckResult> {
     const validated = validate(PermissionCheckInputSchema, input);
 
-    // Get user's capabilities
-    const capabilities = await this.getUserCapabilities(validated.tenantId, validated.userId);
-
-    // Check if capability is present
-    const allowed = capabilities.includes(validated.capability);
+    // Use Casbin to enforce
+    const allowed = await this.enforcer.enforce(
+      validated.tenantId,
+      validated.userId,
+      validated.capability
+    );
 
     if (allowed) {
       // Get roles that granted this capability
-      const roles = await this.getUserRoles(validated.tenantId, validated.userId);
-      const matchedRoles = roles
-        .filter(role => role.capabilities.includes(validated.capability))
-        .map(role => role.roleId);
+      const grantingRoles = await this.enforcer.getGrantingRoles(
+        validated.tenantId,
+        validated.userId,
+        validated.capability
+      );
+
+      // Get role names for audit trail
+      const grantedBy: string[] = [];
+      for (const roleId of grantingRoles) {
+        const role = await this.roleStorage.getRole(validated.tenantId, roleId);
+        if (role) {
+          grantedBy.push(`role:${role.name} (${role.roleId})`);
+        }
+      }
 
       return {
         allowed: true,
-        matchedRoles,
+        grantedBy,
+        reason: `Access granted by ${grantedBy.length} role(s)`,
       };
     }
 
     return {
       allowed: false,
+      grantedBy: [],
       reason: `User does not have capability: ${validated.capability}`,
     };
   }
@@ -226,21 +287,36 @@ export class PermissionsService {
     validate(TenantIdSchema, tenantId);
     validate(UserIdSchema, userId);
 
-    const userCapabilities = await this.getUserCapabilities(tenantId, userId);
+    const allGrantedBy: string[] = [];
     const missing: CapabilityId[] = [];
 
     for (const capability of capabilities) {
-      if (!userCapabilities.includes(capability)) {
+      const result = await this.checkPermission({
+        tenantId,
+        userId,
+        capability,
+      });
+
+      if (result.allowed) {
+        allGrantedBy.push(...result.grantedBy);
+      } else {
         missing.push(capability);
       }
     }
 
     if (missing.length === 0) {
-      return { allowed: true };
+      // Deduplicate granted by
+      const uniqueGrantedBy = [...new Set(allGrantedBy)];
+      return {
+        allowed: true,
+        grantedBy: uniqueGrantedBy,
+        reason: `All ${capabilities.length} capabilities granted`,
+      };
     }
 
     return {
       allowed: false,
+      grantedBy: [],
       reason: `User is missing capabilities: ${missing.join(', ')}`,
     };
   }
@@ -256,16 +332,25 @@ export class PermissionsService {
     validate(TenantIdSchema, tenantId);
     validate(UserIdSchema, userId);
 
-    const userCapabilities = await this.getUserCapabilities(tenantId, userId);
-
     for (const capability of capabilities) {
-      if (userCapabilities.includes(capability)) {
-        return { allowed: true };
+      const result = await this.checkPermission({
+        tenantId,
+        userId,
+        capability,
+      });
+
+      if (result.allowed) {
+        return {
+          allowed: true,
+          grantedBy: result.grantedBy,
+          reason: `Capability ${capability} granted`,
+        };
       }
     }
 
     return {
       allowed: false,
+      grantedBy: [],
       reason: `User does not have any of the required capabilities: ${capabilities.join(', ')}`,
     };
   }

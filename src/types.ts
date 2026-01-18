@@ -53,11 +53,14 @@ export interface PermissionCheckInput {
 
 /**
  * Permission check result
+ * 
+ * Every permission check returns a deterministic, auditable result
+ * explaining whether access was allowed and why.
  */
 export interface PermissionCheckResult {
   allowed: boolean;
+  grantedBy: string[];
   reason?: string;
-  matchedRoles?: RoleId[];
 }
 
 /**

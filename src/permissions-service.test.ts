@@ -33,7 +33,7 @@ describe('PermissionsService', () => {
       const input: CreateRoleInput = {
         tenantId: 'tenant-1',
         name: 'Invalid',
-        capabilities: ['invalid-capability'], // Missing colon
+        capabilities: ['invalid-capability'],
       };
 
       await expect(service.createRole(input)).rejects.toThrow();
@@ -120,7 +120,6 @@ describe('PermissionsService', () => {
 
   describe('getUserRoles', () => {
     it('should return all roles assigned to a user', async () => {
-      // Create roles
       const role1 = await service.createRole({
         tenantId: 'tenant-1',
         name: 'Cashier',
@@ -133,7 +132,6 @@ describe('PermissionsService', () => {
         capabilities: ['pos:refund-sale'],
       });
 
-      // Assign roles
       await service.assignRole({
         tenantId: 'tenant-1',
         userId: 'user-1',
@@ -156,7 +154,6 @@ describe('PermissionsService', () => {
 
   describe('getUserCapabilities', () => {
     it('should aggregate capabilities from all roles', async () => {
-      // Create roles
       const role1 = await service.createRole({
         tenantId: 'tenant-1',
         name: 'Cashier',
@@ -169,7 +166,6 @@ describe('PermissionsService', () => {
         capabilities: ['inventory:view-stock', 'inventory:update-stock'],
       });
 
-      // Assign roles
       await service.assignRole({
         tenantId: 'tenant-1',
         userId: 'user-1',
@@ -192,7 +188,6 @@ describe('PermissionsService', () => {
     });
 
     it('should deduplicate capabilities from multiple roles', async () => {
-      // Create roles with overlapping capabilities
       const role1 = await service.createRole({
         tenantId: 'tenant-1',
         name: 'Basic',
@@ -205,7 +200,6 @@ describe('PermissionsService', () => {
         capabilities: ['pos:create-sale', 'pos:refund-sale'],
       });
 
-      // Assign both roles
       await service.assignRole({
         tenantId: 'tenant-1',
         userId: 'user-1',
@@ -220,7 +214,7 @@ describe('PermissionsService', () => {
 
       const capabilities = await service.getUserCapabilities('tenant-1', 'user-1');
 
-      expect(capabilities).toHaveLength(2); // Deduplicated
+      expect(capabilities).toHaveLength(2);
       expect(capabilities).toContain('pos:create-sale');
       expect(capabilities).toContain('pos:refund-sale');
     });
@@ -249,7 +243,8 @@ describe('PermissionsService', () => {
       const result = await service.checkPermission(checkInput);
 
       expect(result.allowed).toBe(true);
-      expect(result.matchedRoles).toContain(role.roleId);
+      expect(result.grantedBy).toBeDefined();
+      expect(result.grantedBy.length).toBeGreaterThan(0);
     });
 
     it('should deny access when user lacks capability', async () => {
@@ -268,12 +263,13 @@ describe('PermissionsService', () => {
       const checkInput: PermissionCheckInput = {
         tenantId: 'tenant-1',
         userId: 'user-1',
-        capability: 'pos:refund-sale', // Not granted
+        capability: 'pos:refund-sale',
       };
 
       const result = await service.checkPermission(checkInput);
 
       expect(result.allowed).toBe(false);
+      expect(result.grantedBy).toEqual([]);
       expect(result.reason).toContain('does not have capability');
     });
   });
@@ -298,6 +294,7 @@ describe('PermissionsService', () => {
       ]);
 
       expect(result.allowed).toBe(true);
+      expect(result.grantedBy.length).toBeGreaterThan(0);
     });
 
     it('should deny when user is missing any capability', async () => {
@@ -315,10 +312,11 @@ describe('PermissionsService', () => {
 
       const result = await service.checkPermissions('tenant-1', 'user-1', [
         'pos:create-sale',
-        'pos:refund-sale', // Missing
+        'pos:refund-sale',
       ]);
 
       expect(result.allowed).toBe(false);
+      expect(result.grantedBy).toEqual([]);
       expect(result.reason).toContain('missing capabilities');
     });
   });
@@ -338,11 +336,12 @@ describe('PermissionsService', () => {
       });
 
       const result = await service.checkAnyPermission('tenant-1', 'user-1', [
-        'pos:create-sale', // Has this
-        'pos:refund-sale', // Doesn't have this
+        'pos:create-sale',
+        'pos:refund-sale',
       ]);
 
       expect(result.allowed).toBe(true);
+      expect(result.grantedBy.length).toBeGreaterThan(0);
     });
 
     it('should deny when user has none of the capabilities', async () => {
@@ -364,58 +363,51 @@ describe('PermissionsService', () => {
       ]);
 
       expect(result.allowed).toBe(false);
+      expect(result.grantedBy).toEqual([]);
     });
   });
 
   describe('tenant isolation', () => {
     it('should enforce strict tenant boundaries', async () => {
-      // Create role in tenant-1
       const role1 = await service.createRole({
         tenantId: 'tenant-1',
         name: 'Admin',
         capabilities: ['pos:create-sale'],
       });
 
-      // Create role in tenant-2
       const role2 = await service.createRole({
         tenantId: 'tenant-2',
         name: 'Admin',
         capabilities: ['pos:create-sale'],
       });
 
-      // Assign role1 to user-1 in tenant-1
       await service.assignRole({
         tenantId: 'tenant-1',
         userId: 'user-1',
         roleId: role1.roleId,
       });
 
-      // Assign role2 to user-1 in tenant-2
       await service.assignRole({
         tenantId: 'tenant-2',
         userId: 'user-1',
         roleId: role2.roleId,
       });
 
-      // Check permissions in tenant-1
       const result1 = await service.checkPermission({
         tenantId: 'tenant-1',
         userId: 'user-1',
         capability: 'pos:create-sale',
       });
 
-      // Check permissions in tenant-2
       const result2 = await service.checkPermission({
         tenantId: 'tenant-2',
         userId: 'user-1',
         capability: 'pos:create-sale',
       });
 
-      // Both should be allowed in their respective tenants
       expect(result1.allowed).toBe(true);
       expect(result2.allowed).toBe(true);
 
-      // Verify roles are isolated
       const roles1 = await service.getUserRoles('tenant-1', 'user-1');
       const roles2 = await service.getUserRoles('tenant-2', 'user-1');
 
@@ -423,6 +415,29 @@ describe('PermissionsService', () => {
       expect(roles2).toHaveLength(1);
       expect(roles1[0].roleId).toBe(role1.roleId);
       expect(roles2[0].roleId).toBe(role2.roleId);
+    });
+
+    it('should deny cross-tenant access', async () => {
+      const role = await service.createRole({
+        tenantId: 'tenant-1',
+        name: 'Admin',
+        capabilities: ['pos:create-sale'],
+      });
+
+      await service.assignRole({
+        tenantId: 'tenant-1',
+        userId: 'user-1',
+        roleId: role.roleId,
+      });
+
+      const result = await service.checkPermission({
+        tenantId: 'tenant-2',
+        userId: 'user-1',
+        capability: 'pos:create-sale',
+      });
+
+      expect(result.allowed).toBe(false);
+      expect(result.grantedBy).toEqual([]);
     });
   });
 
@@ -447,6 +462,100 @@ describe('PermissionsService', () => {
       expect(context.roles).toContain(role.roleId);
       expect(context.capabilities).toContain('pos:create-sale');
       expect(context.capabilities).toContain('pos:refund-sale');
+    });
+  });
+
+  describe('HARD STOP: Suite can check capability and receive deterministic, auditable result', () => {
+    it('Suite can check capability and receive deterministic, auditable result', async () => {
+      const tenantId = 'suite-tenant';
+      const userId = 'user-x';
+      const capability = 'pos:process-payment';
+
+      const role = await service.createRole({
+        tenantId,
+        name: 'PaymentProcessor',
+        description: 'Can process payments in POS',
+        capabilities: [capability, 'pos:view-transactions'],
+      });
+
+      await service.assignRole({
+        tenantId,
+        userId,
+        roleId: role.roleId,
+      });
+
+      const result = await service.checkPermission({
+        tenantId,
+        userId,
+        capability,
+      });
+
+      expect(result.allowed).toBe(true);
+      expect(result.grantedBy).toBeDefined();
+      expect(Array.isArray(result.grantedBy)).toBe(true);
+      expect(result.grantedBy.length).toBeGreaterThan(0);
+      expect(result.grantedBy[0]).toContain('PaymentProcessor');
+      expect(typeof result.reason).toBe('string');
+
+      const deniedResult = await service.checkPermission({
+        tenantId,
+        userId,
+        capability: 'admin:delete-tenant',
+      });
+
+      expect(deniedResult.allowed).toBe(false);
+      expect(deniedResult.grantedBy).toEqual([]);
+      expect(deniedResult.reason).toBeDefined();
+      expect(typeof deniedResult.reason).toBe('string');
+    });
+  });
+
+  describe('Casbin integration', () => {
+    it('should use Casbin for permission enforcement', async () => {
+      const role1 = await service.createRole({
+        tenantId: 'casbin-tenant',
+        name: 'Editor',
+        capabilities: ['content:edit', 'content:publish'],
+      });
+
+      const role2 = await service.createRole({
+        tenantId: 'casbin-tenant',
+        name: 'Viewer',
+        capabilities: ['content:view'],
+      });
+
+      await service.assignRole({
+        tenantId: 'casbin-tenant',
+        userId: 'editor-user',
+        roleId: role1.roleId,
+      });
+
+      await service.assignRole({
+        tenantId: 'casbin-tenant',
+        userId: 'viewer-user',
+        roleId: role2.roleId,
+      });
+
+      const editorCanEdit = await service.checkPermission({
+        tenantId: 'casbin-tenant',
+        userId: 'editor-user',
+        capability: 'content:edit',
+      });
+      expect(editorCanEdit.allowed).toBe(true);
+
+      const viewerCannotEdit = await service.checkPermission({
+        tenantId: 'casbin-tenant',
+        userId: 'viewer-user',
+        capability: 'content:edit',
+      });
+      expect(viewerCannotEdit.allowed).toBe(false);
+
+      const viewerCanView = await service.checkPermission({
+        tenantId: 'casbin-tenant',
+        userId: 'viewer-user',
+        capability: 'content:view',
+      });
+      expect(viewerCanView.allowed).toBe(true);
     });
   });
 });

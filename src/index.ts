@@ -33,6 +33,13 @@ export {
   InMemoryUserRoleStorage,
 } from './storage';
 
+// Casbin adapter
+export {
+  CasbinEnforcer,
+  PolicyStorage,
+  InMemoryPolicyStorage,
+} from './casbin-adapter';
+
 // Validation
 export {
   validate,

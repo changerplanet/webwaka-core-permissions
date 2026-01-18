@@ -8,7 +8,7 @@
  */
 
 import { newEnforcer, Enforcer, newModel } from 'casbin';
-import { TenantId, UserId, RoleId, CapabilityId, Role } from './types';
+import { TenantId, UserId, RoleId, CapabilityId } from './types';
 import { RoleStorage, UserRoleStorage } from './storage';
 
 /**

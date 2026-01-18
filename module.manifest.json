@@ -1,19 +1,47 @@
 {
   "id": "webwaka-core-permissions",
   "name": "Core Permissions",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "core",
-  "description": "Role-based access control and authorization core service",
+  "description": "Role-based access control and authorization core service powered by Casbin",
   "capabilities": [
     "rbac",
     "capability-based-permissions",
     "role-management",
     "permission-checks",
-    "tenant-isolation"
+    "tenant-isolation",
+    "casbin-policy-engine",
+    "deterministic-authorization",
+    "auditable-decisions"
   ],
   "dependencies": [
     "webwaka-core-identity"
   ],
+  "exports": {
+    "PermissionsService": "Main permissions service class",
+    "CasbinEnforcer": "Casbin-based policy enforcer",
+    "RoleStorage": "Interface for role storage",
+    "UserRoleStorage": "Interface for user-role assignments",
+    "PolicyStorage": "Interface for Casbin policy storage",
+    "InMemoryRoleStorage": "In-memory role storage for testing",
+    "InMemoryUserRoleStorage": "In-memory user-role storage for testing",
+    "InMemoryPolicyStorage": "In-memory policy storage for testing"
+  },
+  "apis": {
+    "checkPermission": "Check if user has capability, returns deterministic auditable result",
+    "checkPermissions": "Check if user has ALL capabilities",
+    "checkAnyPermission": "Check if user has ANY of the capabilities",
+    "createRole": "Create a new role with capabilities",
+    "getRole": "Get role by ID",
+    "updateRole": "Update role capabilities",
+    "deleteRole": "Delete a role",
+    "listRoles": "List all roles in tenant",
+    "assignRole": "Assign role to user",
+    "removeRole": "Remove role from user",
+    "getUserRoles": "Get all roles for a user",
+    "getUserCapabilities": "Get aggregated capabilities for a user",
+    "buildPolicyContext": "Build policy context for advanced authorization"
+  },
   "maintainers": [
     {
       "name": "ChangerPlanet Team",
