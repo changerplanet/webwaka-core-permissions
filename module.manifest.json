@@ -4,8 +4,16 @@
   "version": "0.1.0",
   "type": "core",
   "description": "Role-based access control and authorization core service",
-  "capabilities": [],
-  "dependencies": [],
+  "capabilities": [
+    "rbac",
+    "capability-based-permissions",
+    "role-management",
+    "permission-checks",
+    "tenant-isolation"
+  ],
+  "dependencies": [
+    "webwaka-core-identity"
+  ],
   "maintainers": [
     {
       "name": "ChangerPlanet Team",
