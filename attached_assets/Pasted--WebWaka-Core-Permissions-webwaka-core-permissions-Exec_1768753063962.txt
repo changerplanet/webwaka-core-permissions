@@ -1,0 +1,216 @@
+
+WebWaka Core Permissions (webwaka-core-permissions)
+
+Execution Platform
+	•	Platform: Replit
+	•	Account: Replit-02
+	•	GitHub Org: ChangerPlanet
+	•	Repository: changerplanet/webwaka-core-permissions
+	•	Branch Strategy:
+	•	Clone → implement → push directly to main
+	•	No feature branches required
+
+⸻
+
+🔒 NON-NEGOTIABLE PRECONDITIONS (MUST ACKNOWLEDGE)
+
+Before writing any code, you must confirm the following in your response:
+	1.	You will clone the repository from GitHub first:
+
+https://github.com/changerplanet/webwaka-core-permissions
+
+
+	2.	This is a TypeScript-only library module
+	•	❌ No React
+	•	❌ No FastAPI
+	•	❌ No HTTP server
+	•	❌ No UI
+	3.	Casbin is the only authorized OSS engine
+	4.	The module:
+	•	Has no authentication logic
+	•	Receives (tenantId, userId) from webwaka-core-identity
+	5.	You will push directly to main when complete
+
+If any of the above is unclear → STOP and ask.
+
+⸻
+
+🎯 OBJECTIVE
+
+Implement the canonical authorization engine for WebWaka using Casbin, providing:
+	•	Tenant-isolated RBAC
+	•	Capability-based permissions
+	•	Deterministic & auditable decisions
+	•	Headless, reusable logic for all Suites
+
+⸻
+
+📦 SCOPE (STRICT)
+
+You MUST implement:
+
+1. Core Permissions Service
+
+Create PermissionsService exposing:
+
+checkPermission(input: {
+  tenantId: string
+  userId: string
+  capability: string
+}): Promise<{
+  allowed: boolean
+  grantedBy: string[]   // roles or policies
+}>
+
+checkPermissions(
+  tenantId: string,
+  userId: string,
+  capabilities: string[]
+)
+
+checkAnyPermission(
+  tenantId: string,
+  userId: string,
+  capabilities: string[]
+)
+
+
+⸻
+
+2. Role & Assignment Management
+
+createRole()
+getRole()
+updateRole()
+deleteRole()
+listRoles()
+
+assignRole()
+removeRole()
+getUserRoles()
+getUserCapabilities()
+
+All scoped strictly by tenantId.
+
+⸻
+
+3. Casbin Integration (MANDATORY)
+	•	Use Casbin as the policy engine
+	•	Configure Casbin with:
+	•	subject = userId
+	•	domain = tenantId
+	•	action = capability
+	•	Support:
+	•	Role → capability mapping
+	•	User → role assignment
+	•	Domain-aware enforcement
+
+⸻
+
+4. Storage Abstractions
+
+Define interfaces only:
+	•	RoleStorage
+	•	UserRoleStorage
+	•	PolicyStorage
+
+Provide:
+	•	In-memory implementations for tests only
+
+⚠️ No database assumptions.
+
+⸻
+
+5. Deterministic & Auditable Output
+
+Every permission check must return:
+	•	allowed: boolean
+	•	grantedBy: string[] (roles or policies responsible)
+
+No silent allow/deny.
+
+⸻
+
+🧪 TESTING REQUIREMENTS
+
+You MUST implement:
+	•	Jest test suite
+	•	Tests for:
+	•	Tenant isolation
+	•	Cross-tenant denial
+	•	Role assignment
+	•	Capability resolution
+	•	Deterministic outcomes
+	•	Minimum coverage: 80%
+	•	Tests proving the hard stop condition
+
+⸻
+
+🛑 HARD STOP CONDITION (MANDATORY)
+
+You must stop immediately once this is true:
+
+Any Suite can ask:
+“Can user X (tenant Y) perform capability Z?”
+
+And receive a deterministic, auditable answer explaining:
+	•	Allowed or denied
+	•	Why
+	•	Which role/policy granted it
+
+You must include a test named:
+
+Suite can check capability and receive deterministic, auditable result
+
+
+⸻
+
+🚫 EXPLICITLY FORBIDDEN
+	•	❌ Authentication logic
+	•	❌ Clerk usage
+	•	❌ HTTP APIs
+	•	❌ Suite-specific permissions
+	•	❌ Implicit access rules
+	•	❌ Hard-coded roles
+
+⸻
+
+📄 REQUIRED FILES
+
+You must update or create:
+	•	src/permissions-service.ts
+	•	src/casbin-adapter.ts
+	•	src/storage.ts
+	•	src/types.ts
+	•	src/index.ts
+	•	module.manifest.json
+	•	module.contract.md
+	•	__tests__/*.test.ts
+
+⸻
+
+📌 DEPENDENCIES
+	•	casbin (required)
+	•	zod (validation)
+	•	jest (tests)
+
+⸻
+
+🧾 COMPLETION REPORT (REQUIRED)
+
+When finished, respond with only:
+	1.	Completion Summary
+	2.	Public APIs exposed
+	3.	Hard stop proof
+	4.	Test coverage numbers
+	5.	Final commit SHA on main
+
+Then STOP.
+
+⸻
+
+🚦 DO NOT PROCEED PAST THIS STEP
+
+No Phase 2 — Step 04 work is allowed until explicit authorization.
+
+⸻

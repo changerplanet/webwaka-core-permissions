@@ -30,6 +30,7 @@
     "typescript": "^5.0.0"
   },
   "dependencies": {
+    "casbin": "^5.48.0",
     "zod": "^3.22.0"
   }
 }
