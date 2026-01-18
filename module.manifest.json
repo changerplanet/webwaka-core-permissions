@@ -1,0 +1,20 @@
+{
+  "id": "webwaka-core-permissions",
+  "name": "Core Permissions",
+  "version": "0.1.0",
+  "type": "core",
+  "description": "Role-based access control and authorization core service",
+  "capabilities": [],
+  "dependencies": [],
+  "maintainers": [
+    {
+      "name": "ChangerPlanet Team",
+      "email": "changerplanet@gmail.com"
+    }
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ChangerPlanet/webwaka-core-permissions"
+  },
+  "license": "MIT"
+}
