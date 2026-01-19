@@ -8,21 +8,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Core permissions service implementation
-- Role-based access control (RBAC) with capability-based permissions
-- Role management (create, update, delete, list)
-- User role assignment and revocation
-- Permission check primitives (single, all, any)
-- Capability aggregation from multiple roles
-- Policy context builder for advanced authorization
-- Storage abstraction layer (RoleStorage, UserRoleStorage)
-- In-memory storage implementations for testing
-- Comprehensive test suite with tenant isolation verification
-- TypeScript type definitions and interfaces
-- Input validation with Zod schemas
-- ESLint and TypeScript configuration
+- Repository created with governance structure
+- Mandatory files and CI/CD infrastructure
+- Module manifest and contract documentation
+- Vercel deployment configuration
 
-## [0.1.0] - 2026-01-18
+## [0.0.0] - 2026-01-18
 
 ### Added
-- Initial commit with governance structure
+- Initial repository setup
+- Governance files (README, manifest, contract, CHANGELOG, OWNERS, SECURITY)
+- CI workflow for validation
+- Vercel project binding
+
+### Notes
+- Implementation pending - infrastructure ready for development
