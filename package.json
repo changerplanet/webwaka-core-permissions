@@ -1,5 +1,5 @@
 {
-  "name": "webwaka-core-permissions",
+  "name": "@webwaka/core-permissions",
   "version": "0.1.0",
   "description": "Role-based access control and authorization core service",
   "main": "dist/index.js",
@@ -32,5 +32,8 @@
   "dependencies": {
     "casbin": "^5.48.0",
     "zod": "^3.22.0"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }
